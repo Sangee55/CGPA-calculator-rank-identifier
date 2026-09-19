@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGPA CALCULATOR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        /* Styles for the application */
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: #f8fafc;
+            border-radius: 0.25rem;
+        }
+        
+        .file-item-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .remove-file-btn {
+            color: #ef4444;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-left: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .remove-file-btn:hover {
+            background-color: #fee2e2;
+        }
+
+        .loading.active {
+            display: block;
+        }
+        .loading {
+            display: none;
+        }
+        .error {
+            color: red;
+            display: none;
+        }
+        .core-table th, .core-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border: 1px solid #444;
+            font-size: 0.9rem;
+        }
+        .search-results-saved {
+            background-color: #48bb78;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .saved-search-section {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        .chart-container {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-wrapper {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            flex: 1;
+            min-width: 0;
+        }
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .autocomplete-item:hover {
+            background-color: #f0f0f0;
+        }
+        .autocomplete-item.active {
+            background-color: #e6f3ff;
+        }
+        .file-list {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+        }
+        .processing-status {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .status-pending { background: #fef3c7; }
+        .status-processing { background: #dbeafe; }
+        .status-complete { background: #dcfce7; }
+        .status-error { background: #fee2e2; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold text-center mb-8">SUBJECT WISE CALCULATE</h1>
+
+        <!-- Upload Section -->
+        <div class="bg-white p-6 rounded-lg shadow-sm">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Marksheet Images
+                </label>
+                <div class="flex flex-col space-y-4">
+                    <input type="file" 
+                           id="imageInput" 
+                           accept="image/*"
+                           multiple
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <div class="text-sm text-gray-600">
+                        Or drag and drop a folder here
+                    </div>
+                </div>
+            </div>
+            
+            <!-- File List Display -->
+            <div id="fileList" class="file-list hidden">
+                <h3 class="font-semibold mb-2">Files to Process:</h3>
+                <div id="fileItems"></div>
+            </div>
+
+            <button id="processButton"
+                    class="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                    disabled>
+                Process All Files
+            </button>
+        </div>
+
+        <!-- Batch Processing Status -->
+        <div id="batchStatus" class="mt-4 bg-white p-4 rounded-lg shadow-sm hidden">
+            <h3 class="font-semibold mb-2">Batch Processing Status</h3>
+            <div class="flex justify-between items-center">
+                <div class="text-sm">
+                    Processed: <span id="processedCount">0</span> / <span id="totalCount">0</span>
+                </div>
+                <div class="text-sm">
+                    Success: <span id="successCount" class="text-green-600">0</span>
+                    Failed: <span id="failedCount" class="text-red-600">0</span>
+                </div>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="progressBar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading">
+            <div class="spinner mb-4">Processing...</div>
+            <p>Processing marksheet image...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" class="error"></div>
+
+        <!-- Registration Number Display -->
+        <div id="regNumberDisplay" class="text-center text-xl font-bold my-4"></div>
+
+        <!-- Core Subjects Table -->
+        <div id="coreTable" class="overflow-x-auto"></div>
+
+        <!-- CGPA Result -->
+        <div id="cgpaResult" class="text-xl font-semibold mt-4 text-center"></div>
+
+        <!-- Extracted Text Display -->
+        <div id="textDisplay" class="bg-white p-4 rounded-lg shadow mt-4"></div>
+
+        <!-- Saved Registrations Section -->
+        <div class="mt-8">
+            <div id="savedRegistrations" class="bg-white p-4 rounded-lg shadow-sm"></div>
+        </div>
+
+        <!-- New Subject Search Section -->
+        <div class="mt-8">
+            <h2 class="text-2xl font-bold mb-4">Subject Search</h2>
+            <div class="flex">
+                <div class="autocomplete-container">
+                    <input 
+                        type="text" 
+                        id="subjectSearchInput" 
+                        placeholder="Search by subject name" 
+                        class="w-full p-2 border rounded mb-4 mr-2"
+                    >
+                    <div id="autocompleteDropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                </div>
+                <button 
+                    id="saveSearchResultsBtn"
+                    class="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+                    disabled
+                >
+                    Save Results
+                </button>
+            </div>
+            <div id="searchResultsSavedMessage" class="hidden"></div>
+            <div id="subjectSearchResults" class="bg-white p-4 rounded-lg shadow-sm">
+                <table id="subjectSearchTable" class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Registration Number</th>
+                            <th class="border p-2">Subject Name</th>
+                            <th class="border p-2">Total Marks</th>
+                            <th class="border p-2">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subjectSearchTableBody">
+                        <!-- Search results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Saved Searches Section -->
+        <div id="savedSearchesSection" class="mt-8">
+            <h2 class="text-2xl font-bold mb-4">Saved Subjects</h2>
+            <div id="savedSearchesList" class="bg-white p-4 rounded-lg shadow-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // IndexedDB Database Setup
+        let db;
+        const dbName = 'MarksheetDatabase';
+        const dbVersion = 2; // Increment version to force recreation
+        const storeName = 'registrations';
+        let isDatabaseReady = false; // Flag to check if the database is ready
+
+        // Function to clear the entire database
+        function clearDatabase() {
+            return new Promise((resolve, reject) => {
+                // Close any existing database connections
+                if (db) {
+                    db.close();
+                }
+
+                // Delete the entire database
+                const deleteRequest = indexedDB.deleteDatabase(dbName);
+
+                deleteRequest.onsuccess = function() {
+                    console.log('Database deleted successfully');
+                    resolve();
+                };
+
+                deleteRequest.onerror = function(event) {
+                    console.error('Error deleting database:', event.target.error);
+                    reject(event.target.error);
+                };
+
+                deleteRequest.onblocked = function() {
+                    console.warn('Database deletion was blocked');
+                    reject(new Error('Database deletion blocked'));
+                };
+            });
+        }
+
+        async function processAllFiles() {
+            processButton.disabled = true;
+
+            // Hide remove buttons when processing starts
+            hideRemoveButtons();
+
+            // Clear previous results
+            const previousResults = document.querySelectorAll('.results-container');
+            previousResults.forEach(container => container.remove());
+
+            const totalFiles = filesToProcess.length;
+            
+            for (let i = 0; i < totalFiles; i++) {
+                const currentFile = filesToProcess[0]; // Always get the first file
+                const fileItems = document.getElementById('fileItems');
+                const firstFileItem = fileItems.firstElementChild;
+                
+                if (firstFileItem) {
+                    const statusElement = firstFileItem.querySelector('.processing-status');
+                    
+                    try {
+                        statusElement.className = 'processing-status status-processing';
+                        statusElement.textContent = 'Processing...';
+                
+                        await processMarksheet(currentFile);
+                
+                        // Remove the file from filesToProcess array
+                        filesToProcess.shift(); // Remove the first file
+                        
+                        // Remove the file item from UI
+                        fileItems.removeChild(firstFileItem);
+                        
+                        successCount++;
+                    } catch (error) {
+                        statusElement.className = 'processing-status status-error';
+                        statusElement.textContent = 'Error';
+                        
+                        // Remove the file even if there's an error
+                        filesToProcess.shift();
+                        fileItems.removeChild(firstFileItem);
+                        
+                        failedCount++;
+                        console.error(`Error processing ${currentFile.name}:`, error);
+                    }
+                    
+                    processedCount++;
+                    updateBatchStatus();
+                }
+            }
+
+            // Clear file input after all processing is complete
+            document.getElementById('imageInput').value = '';
+            processButton.disabled = false;
+
+            // Hide the file list if all files are processed
+            if (filesToProcess.length === 0) {
+                document.getElementById('fileList').classList.add('hidden');
+                document.getElementById('batchStatus').classList.add('hidden');
+            }
+        }
+
+        // Open IndexedDB with clearing on page load
+        async function initializeDatabase() {
+            try {
+                // Clear existing database
+                await clearDatabase();
+
+                // Reopen the database with new structure
+                const request = indexedDB.open(dbName, dbVersion);
+
+                request.onupgradeneeded = function(event) {
+                    db = event.target.result;
+                    const objectStore = db.createObjectStore(storeName, { 
+                        keyPath: 'registrationNumber' 
+                    });
+
+                    // Create indexes
+                    objectStore.createIndex('cgpa', 'cgpa', { unique: false });
+                    objectStore.createIndex('savedDate', 'savedDate', { unique: false });
+                    objectStore.createIndex('type', 'type', { unique: false });
+                };
+
+                request.onsuccess = function(event) {
+                    db = event.target.result;
+                    isDatabaseReady = true; // Set flag when database is ready
+                    
+                    // Display saved registrations and searches
+                    displaySavedRegistrations();
+                    displaySavedSearches();
+                };
+
+                request.onerror = function(event) {
+                    console.error('IndexedDB error:', event.target.error);
+                };
+            } catch (error) {
+                console.error('Database initialization error:', error);
+            }
+        }
+
+        // Call initialization when the page loads
+        document.addEventListener('DOMContentLoaded', initializeDatabase);
+
+        // Add this function to hide all remove buttons
+        function hideRemoveButtons() {
+            const removeButtons = document.querySelectorAll('.remove-file-btn');
+            removeButtons.forEach(button => {
+                button.style.display = 'none';
+            });
+        }
+
+        // Save registration to IndexedDB
+        function saveRegistrationToDatabase(registrationData) {
+            if (!db) return;
+
+            const transaction = db.transaction(['registrations'], 'readwrite');
+            const objectStore = transaction.objectStore('registrations');
+
+            // Process subject details
+            const processedSubjects = registrationData.coreSubjects.map(subject => {
+                const details = extractSubjectDetails(subject);
+                return {
+                    courseCode: details.courseCode,
+                    subjectName: details.subjectName,
+                    type: details.isPractical ? 'Practical' : 'Theory',
+                    internalMarks: details.internal || '-',
+                    externalMarks: details.external || '-',
+                    totalMarks: details.total || '-',
+                    grade: getGrade(details.total) // Get grade based on total marks
+                };
+            });
+
+            const completeRegistrationData = {
+                registrationNumber: registrationData.registrationNumber,
+                cgpa: registrationData.cgpa,
+                savedDate: new Date().toISOString(),
+                processedSubjects: processedSubjects,
+                type: 'registration' // Mark as registration type
+            };
+
+            const request = objectStore.add(completeRegistrationData);
+
+            request.onsuccess = function() {
+                console.log('Registration saved successfully');
+                displaySavedRegistrations();
+            };
+
+            request.onerror = function(event) {
+                console.error('Error saving registration:', event.target.error);
+            };
+        }
+
+        // Display saved registrations
+        function displaySavedRegistrations() {
+            const savedRegistrationsDiv = document.getElementById('savedRegistrations');
+            savedRegistrationsDiv.innerHTML = ''; // Clear previous content
+
+            if (!db) return;
+
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = function(event) {
+                const registrations = event.target.result.filter(item => item.type === 'registration');
+                
+                if (registrations.length === 0) {
+                    savedRegistrationsDiv.innerHTML = '<p>No saved registrations</p>';
+                    return;
+                }
+
+                const table = document.createElement('table');
+                table.className = 'w-full border-collapse';
+                table.innerHTML = `
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">Reg Number</th>
+                            <th class="border p-2">CGPA</th>
+                            <th class="border p-2">Saved Date</th>
+                            <th class="border p-2">Actions</th>
+                            <th class="border p-2">Subject Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${registrations.map(reg => `
+                            <tr>
+                                <td class="border p-2">${reg.registrationNumber}</td>
+                                <td class="border p-2">${reg.cgpa}</td>
+                                <td class="border p-2">${new Date(reg.savedDate).toLocaleString()}</td>
+                                <td class="border p-2">
+                                    <button onclick="deleteRegistration('${reg.registrationNumber}')" 
+                                            class="bg-red-500 text-white px-2 py-1 rounded">
+                                        Delete
+                                    </button>
+                                </td>
+                                <td class="border p-2">
+                                    <details>
+                                        <summary>View Subjects (${reg.processedSubjects?.length || 0})</summary>
+                                        <table class="w-full border-collapse">
+                                            <thead>
+                                                <tr>
+                                                    <th class="border p-1">Course Code</th>
+                                                    <th class="border p-1">Subject Name</th>
+                                                    <th class="border p-1">Type</th>
+                                                    <th class="border p-1">Total Marks</th>
+                                                    <th class="border p-1">Grade</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${(reg.processedSubjects || []).map(subject => `
+                                                    <tr>
+                                                        <td class="border p-1">${subject.courseCode}</td>
+                                                        <td class="border p-1">${subject.subjectName}</td>
+                                                        <td class="border p-1">${subject.type}</td>
+                                                        <td class="border p-1">${subject.totalMarks}</td>
+                                                        <td class="border p-1">${subject.grade}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </details>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                savedRegistrationsDiv.appendChild(table);
+            };
+        }
+
+        // Delete a registration
+        // Delete a registration and its associated UI elements
+function deleteRegistration(id) {
+    if (!db) return;
+
+    const transaction = db.transaction([storeName], 'readwrite');
+    const objectStore = transaction.objectStore(storeName);
+
+    // First, get all saved searches
+    const getAllRequest = objectStore.getAll();
+
+    getAllRequest.onsuccess = function(event) {
+        const allItems = event.target.result;
+        const savedSearches = allItems.filter(item => item.type === 'saved_search');
+        
+        // Delete the registration
+        const deleteRequest = objectStore.delete(id);
+
+        deleteRequest.onsuccess = function() {
+            // Remove the corresponding result container from the UI
+            removeResultContainer(id);
+            
+            // For each saved search, filter out results with the deleted registration number
+            savedSearches.forEach(search => {
+                // Filter out results matching the deleted registration number
+                const updatedResults = search.results.filter(result => 
+                    result.registrationNumber !== id
+                );
+
+                // If there are no results left, delete the entire search
+                if (updatedResults.length === 0) {
+                    objectStore.delete(search.id);
+                } 
+                // If there are still results, update the search with filtered results
+                else if (updatedResults.length !== search.results.length) {
+                    search.results = updatedResults;
+                    objectStore.put(search);
+                }
+            });
+
+            // Refresh both displays
+            displaySavedRegistrations();
+            displaySavedSearches();
+            
+            console.log(`Registration ${id} and its associated saved search entries deleted successfully`);
+        };
+
+        deleteRequest.onerror = function(event) {
+            console.error('Error deleting registration:', event.target.error);
+        };
+    };
+
+    getAllRequest.onerror = function(event) {
+        console.error('Error retrieving saved searches:', event.target.error);
+    };
+}
+
+// Helper function to remove result container from the UI
+function removeResultContainer(registrationNumber) {
+    // Find all result containers
+    const resultContainers = document.querySelectorAll('.bg-white.p-4.rounded-lg.shadow-sm.mt-4');
+    
+    resultContainers.forEach(container => {
+        // Look for the registration number in the container
+        const regNumberElement = container.querySelector('.reg-number');
+        if (regNumberElement && regNumberElement.textContent.includes(registrationNumber)) {
+            // Remove the container with a fade-out animation
+            container.style.transition = 'opacity 0.3s ease-out';
+            container.style.opacity = '0';
+            
+            // Remove the element after the animation completes
+            setTimeout(() => {
+                container.remove();
+            }, 300);
+        }
+    });
+}
+
+        // DOM Elements
+        const imageInput = document.getElementById('imageInput');
+        const processButton = document.getElementById('processButton');
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const textDisplay = document.getElementById('textDisplay');
+        const coreTableDiv = document.getElementById('coreTable');
+        const cgpaResultDiv = document.getElementById('cgpaResult');
+        const regNumberDisplay = document.getElementById('regNumberDisplay');
+
+        let processedLines = [];
+        let coreSubjects = [];
+        let currentSearchResults = [];
+        let filesToProcess = [];
+        let currentProcessingIndex = 0;
+        let processedCount = 0;
+        let successCount = 0;
+        let failedCount = 0;
+
+        // Helper Functions
+        function cleanText(text) {
+            return text
+                .replace(/[^\w\s.,()-]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function extractRegistrationNumber(lines) {
+            const regPatterns = [
+                /\b\d{2}[A-Z]{3}\d{3}\b/,
+                /\b(REG|REGISTER|REGISTRATION).*(NO|NUMBER).*?([A-Z0-9]+)/i,
+                /\b[A-Z]\d{2}[A-Z]{2}\d{3}\b/
+            ];
+
+            for (const line of lines) {
+                for (const pattern of regPatterns) {
+                    const match = line.match(pattern);
+                    if (match) {
+                        return match[match.length - 1];
+                    }
+                }
+            }
+            return null;
+        }
+
+        function displayRegistrationNumber(regNumber) {
+            if (regNumber) {
+                regNumberDisplay.innerHTML = `Registration Number: ${regNumber}`;
+            } else {
+                regNumberDisplay.innerHTML = '';
+            }
+        }
+
+        function updateStats(lines) {
+            const words = lines.join(' ').split(/\s+/).filter(word => word.length > 0);
+            const chars = lines.join('').length;
+        }
+
+        function displayText(lines) {
+            textDisplay.innerHTML = lines
+                .map((line, index) => `
+                    <div class="text-line">
+                        <span class="line-number font-bold mr-2">${index + 1}.</span>
+                        <span class="line-content">${line}</span>
+                    </div>
+                `)
+                .join('');
+
+            updateStats(lines);
+        }
+
+        function extractMarksDetails(line) {
+            const numbers = line.match(/\d+/g) || [];
+            const marks = numbers.map(Number).filter(num => num >= 0 && num <= 100);
+            return {
+                internal: marks.length >= 2 ? marks[0] : null,
+                external: marks.length >= 2 ? marks[1] : null,
+                total: marks.length >= 1 ? marks[marks.length - 1] : null
+            };
+        }
+
+        function extractSubjectDetails(line) {
+            const courseCodeMatch = line.match(/\b\d{2}[A-Z]+\d+[A-Z]?\b/) || ['N/A'];
+            const courseCode = courseCodeMatch[0];
+
+            let remainingText = line.replace(courseCode, '').trim();
+            const isPractical = /practical|pract\.?|lab/i.test(line);
+
+            const marksInfo = extractMarksDetails(remainingText);
+
+            let subjectName = remainingText.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+            subjectName = subjectName.replace(/CORE( PAPER)?( \d+)?/gi, '').trim();
+
+            return {
+                courseCode,
+                subjectName,
+                isPractical,
+                ...marksInfo
+            };
+        }
+
+        function displayCoreTable(coreSubjects) {
+            let tableHTML = `
+                <table class="w-full border-collapse core-table">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="border p-2">No.</th>
+                            <th class="border p-2">Course Code</th>
+                            <th class="border p-2">Subject Name</th>
+                            <th class="border p-2">Type</th>
+                            <th class="border p-2">Internal Marks</th>
+                            <th class="border p-2">External Marks</th>
+                            <th class="border p-2">Total Marks</th>
+                            <th class="border p-2">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            coreSubjects.forEach((line, index) => {
+                const details = extractSubjectDetails(line);
+                
+                tableHTML += `
+                    <tr>
+                        <td class="border p-2">${index + 1}</td>
+                        <td class="border p-2">${details.courseCode}</td>
+                        <td class="border p-2">${details.subjectName}</td>
+                        <td class="border p-2">${details.isPractical ? 'Practical' : 'Theory'}</td>
+                        <td class="border p-2">${details.internal || '-'}</td>
+                        <td class="border p-2">${details.external || '-'}</td>
+                        <td class="border p-2">${details.total || '-'}</td>
+                        <td class="border p-2">${getGrade(details.total)}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            coreTableDiv.innerHTML = tableHTML;
+        }
+
+        // Calculate CGPA based on core subjects
+        function calculateCGPA(coreSubjects) {
+            if (coreSubjects.length === 0) return 0;
+
+            const totalMarks = coreSubjects.reduce((sum, subject) => {
+                const details = extractSubjectDetails(subject);
+                return sum + (details.total || 0);
+            }, 0);
+
+            return (totalMarks / (coreSubjects.length * 100) * 10).toFixed(2);
+        }
+
+        // Show Popup Message
+        function showPopupMessage(message) {
+            // Create popup element if it doesn't exist
+            let popup = document.getElementById('registrationPopup');
+            if (!popup) {
+                popup = document.createElement('div');
+                popup.id = 'registrationPopup';
+                popup.style.position = 'fixed';
+                popup.style.top = '50%';
+                popup.style.left = '50%';
+                popup.style.transform = 'translate(-50%, -50%)';
+                popup.style.backgroundColor = 'white';
+                popup.style.border = '2px solid red';
+                popup.style.padding = '20px';
+                popup.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                popup.style.zIndex = '1000';
+                popup.style.maxWidth = '300px';
+                popup.style.textAlign = 'center';
+                
+                const closeButton = document.createElement('button');
+                closeButton.textContent = 'Close';
+                closeButton.style.marginTop = '10px';
+                closeButton.style.backgroundColor = 'red';
+                closeButton.style.color = 'white';
+                closeButton.style.padding = '5px 10px';
+                closeButton.style.border = 'none';
+                closeButton.style.borderRadius = '5px';
+                
+                closeButton.addEventListener('click', () => {
+                    document.body.removeChild(popup);
+                });
+                
+                popup.innerHTML = `<h2 style="color: red;">Warning</h2>`;
+                popup.appendChild(document.createTextNode(message));
+                popup.appendChild(document.createElement('br'));
+                popup.appendChild(closeButton);
+                
+                document.body.appendChild(popup);
+            }
+        }
+
+        // Event Listeners
+        imageInput.addEventListener('change', handleFileSelect);
+        
+        // Drag and drop handling
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const items = e.dataTransfer.items;
+            handleDroppedItems(items);
+        });
+
+        async function handleDroppedItems(items) {
+            const files = [];
+            
+            for (let item of items) {
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) {
+                        if (entry.isFile) {
+                            const file = item.getAsFile();
+                            if (file.type.startsWith('image/')) {
+                                files.push(file);
+                            }
+                        } else if (entry.isDirectory) {
+                            const dirFiles = await readDirectory(entry);
+                            files.push(...dirFiles.filter(f => f.type.startsWith('image/')));
+                        }
+                    }
+                }
+            }
+            
+            updateFileList(files);
+        }
+
+        function readDirectory(dirEntry) {
+            return new Promise((resolve) => {
+                const files = [];
+                const reader = dirEntry.createReader();
+                
+                function readEntries() {
+                    reader.readEntries(async (entries) => {
+                        if (!entries.length) {
+                            resolve(files);
+                            return;
+                        }
+
+                        for (let entry of entries) {
+                            if (entry.isFile) {
+                                const file = await getFileFromEntry(entry);
+                                files.push(file);
+                            } else if (entry.isDirectory) {
+                                const dirFiles = await readDirectory(entry);
+                                files.push(...dirFiles);
+                            }
+                        }
+                        
+                        readEntries();
+                    });
+                }
+                
+                readEntries();
+            });
+        }
+
+        function getFileFromEntry(entry) {
+            return new Promise((resolve) => {
+                entry.file(resolve);
+            });
+        }
+
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files)
+                .filter(file => file.type.startsWith('image/'));
+            updateFileList(files);
+        }
+
+        // Update the updateFileList function to include index data attributes
+        function updateFileList(files) {
+            filesToProcess = files;
+            const fileItems = document.getElementById('fileItems');
+            fileItems.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-item-content">
+                        <span>${file.name}</span>
+                        <div class="flex items-center">
+                            <span class="processing-status status-pending">Pending</span>
+                            <button class="remove-file-btn" onclick="removeFile(${index})" title="Remove file">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 6L6 18"></path>
+                                    <path d="M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                fileItems.appendChild(fileItem);
+            });
+            
+            document.getElementById('fileList').classList.remove('hidden');
+            processButton.disabled = files.length === 0;
+            
+            // Reset counters
+            processedCount = 0;
+            successCount = 0;
+            failedCount = 0;
+            
+            // Show batch status if there are files
+            const batchStatus = document.getElementById('batchStatus');
+            if (files.length > 0) {
+                batchStatus.classList.remove('hidden');
+                updateBatchStatus();
+            } else {
+                batchStatus.classList.add('hidden');
+            }
+        }
+
+        function removeFile(index) {
+            filesToProcess = filesToProcess.filter((_, i) => i !== index);
+            updateFileList(filesToProcess);
+            
+            // Clear file input if all files are removed
+            if (filesToProcess.length === 0) {
+                document.getElementById('imageInput').value = '';
+                document.getElementById('fileList').classList.add('hidden');
+            }
+        }
+
+        function updateBatchStatus() {
+            document.getElementById('processedCount').textContent = processedCount;
+            document.getElementById('totalCount').textContent = filesToProcess.length;
+            document.getElementById('successCount').textContent = successCount;
+            document.getElementById('failedCount').textContent = failedCount;
+            
+            const progress = (processedCount / filesToProcess.length) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        processButton.addEventListener('click', processAllFiles);
+
+        // Main function to process the marksheet
+        async function processMarksheet(imageFile) {
+            if (!imageFile) return;
+
+            let localCoreSubjects = [];
+            let localProcessedLines = [];
+            
+            try {
+                loadingElement.classList.add('active');
+                errorElement.style.display = 'none';
+
+                const result = await Tesseract.recognize(imageFile, 'eng', {
+                    logger: m => console.log(m),
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.- '
+                });
+
+                localProcessedLines = result.data.text
+                    .split('\n')
+                    .map(line => cleanText(line))
+                    .filter(line => line !== "");
+
+                const regNumber = extractRegistrationNumber(localProcessedLines);
+                
+                // Create a container for this image's results
+                const resultContainer = document.createElement('div');
+                resultContainer.className = 'bg-white p-4 rounded-lg shadow-sm mt-4';
+                resultContainer.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-2">Results for ${imageFile.name}</h3>
+                    <div class="reg-number mb-2"></div>
+                    <div class="core-table-container"></div>
+                    <div class="cgpa-result mt-2"></div>
+                `;
+
+                // Insert the container after the batch status
+                const batchStatus = document.getElementById('batchStatus');
+                batchStatus.insertAdjacentElement('afterend', resultContainer);
+
+                // Update registration number
+                const regNumberDiv = resultContainer.querySelector('.reg-number');
+                if (regNumber) {
+                    regNumberDiv.innerHTML = `Registration Number: ${regNumber}`;
+                    
+                    // Validate registration number
+                    const transaction = db.transaction([storeName], 'readonly');
+                    const objectStore = transaction.objectStore(storeName);
+                    const request = objectStore.getAll();
+
+                    request.onsuccess = function(event) {
+                        const registrations = event.target.result.filter(item => item.type === 'registration');
+                        
+                        const newRegLetters = regNumber.slice(3, 5);
+                        const hasDifferentLetters = registrations.some(reg => {
+                            if (!reg.registrationNumber) return false;
+                            const existingLetters = reg.registrationNumber.slice(3, 5);
+                            return newRegLetters !== existingLetters;
+                        });
+
+                        if (hasDifferentLetters && registrations.length > 0) {
+                            showPopupMessage(`Warning: The registration number (${regNumber}) appears to have different registration compared to previously stored registration(s).`);
+                        }
+                    };
+                }
+
+                // Extract core subjects
+                localProcessedLines.forEach(line => {
+                    if (line.toLowerCase().includes('core') || 
+                        (line.match(/\b\d{2}[A-Z]+\d+[A-Z]?\b/) && 
+                         line.toLowerCase().includes('practical'))) {
+                        localCoreSubjects.push(line);
+                    }
+                });
+
+                // Calculate CGPA and display results
+                const cgpa = calculateCGPA(localCoreSubjects);
+                
+                // Display core subjects table
+                const coreTableContainer = resultContainer.querySelector('.core-table-container');
+                let tableHTML = `
+                    <table class="w-full border-collapse core-table">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="border p-2">No.</th>
+                                <th class="border p-2">Course Code</th>
+                                <th class="border p-2">Subject Name</th>
+                                <th class="border p-2">Type</th>
+                                <th class="border p-2">Internal Marks</th>
+                                <th class="border p-2">External Marks</th>
+                                <th class="border p-2">Total Marks</th>
+                                <th class="border p-2">Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                localCoreSubjects.forEach((line, index) => {
+                    const details = extractSubjectDetails(line);
+                    tableHTML += `
+                        <tr>
+                            <td class="border p-2">${index + 1}</td>
+                            <td class="border p-2">${details.courseCode}</td>
+                            <td class="border p-2">${details.subjectName}</td>
+                            <td class="border p-2">${details.isPractical ? 'Practical' : 'Theory'}</td>
+                            <td class="border p-2">${details.internal || '-'}</td>
+                            <td class="border p-2">${details.external || '-'}</td>
+                            <td class="border p-2">${details.total || '-'}</td>
+                            <td class="border p-2">${getGrade(details.total)}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</tbody></table>';
+                coreTableContainer.innerHTML = tableHTML;
+
+                // Display CGPA
+                const cgpaDiv = resultContainer.querySelector('.cgpa-result');
+                cgpaDiv.innerHTML = `CGPA: ${cgpa} (Based on ${localCoreSubjects.length} core subjects)`;
+
+                // Save to database if registration number exists
+                if (regNumber) {
+                    saveRegistrationToDatabase({
+                        registrationNumber: regNumber,
+                        cgpa: cgpa,
+                        coreSubjects: localCoreSubjects,
+                        processedLines: localProcessedLines
+                    });
+                }
+
+            } catch (error) {
+                console.error('Processing Error:', error);
+                errorElement.textContent = 'Error processing the marksheet. Please try again.';
+                errorElement.style.display = 'block';
+            } finally {
+                loadingElement.classList.remove('active');
+            }
+        }
+
+        // Subject Search Functionality
+        const subjectSearchInput = document.getElementById('subjectSearchInput');
+        const subjectSearchTableBody = document.getElementById('subjectSearchTableBody');
+        const saveSearchResultsBtn = document.getElementById('saveSearchResultsBtn');
+        const searchResultsSavedMessage = document.getElementById('searchResultsSavedMessage');
+
+        function performSubjectSearch(searchTerm) {
+            if (!db || searchTerm.length < 3) {
+                subjectSearchTableBody.innerHTML = '';
+                saveSearchResultsBtn.disabled = true;
+                return;
+            }
+
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = function(event) {
+                const registrations = event.target.result;
+                const searchResults = [];
+
+                registrations.forEach(reg => {
+                    const matchingSubjects = (reg.processedSubjects || []).filter(subject => 
+                        subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+
+                    matchingSubjects.forEach(subject => {
+                        searchResults.push({
+                            registrationNumber: reg.registrationNumber,
+                            subjectName: subject.subjectName,
+                            totalMarks: subject.totalMarks,
+                            grade: subject.grade // Include grade in search results
+                        });
+                    });
+                });
+
+                // Populate search results table
+                subjectSearchTableBody.innerHTML = searchResults.length > 0 
+                    ? searchResults.map(result => `
+                        <tr>
+                            <td class="border p-2">${result.registrationNumber}</td>
+                            <td class="border p-2">${result.subjectName}</td>
+                            <td class="border p-2">${result.totalMarks}</td>
+                            <td class="border p-2">${result.grade}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" class="text-center p-4">No results found</td></tr>`;
+
+                // Enable save button if results exist
+                saveSearchResultsBtn.disabled = searchResults.length === 0;
+                
+                // Store current search results for saving
+                currentSearchResults = searchResults;
+            };
+        }
+
+        // New function to save search results
+        function saveSearchResults() {
+            if (!isDatabaseReady || !currentSearchResults || currentSearchResults.length === 0) {
+                console.warn('Unable to save: Database not ready or no results');
+                return;
+            }
+
+            const searchTerm = subjectSearchInput.value.trim();
+            const searchId = `search_${Date.now()}`;  // Unique ID for the search
+
+            // First check for existing entries
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = function(event) {
+                const existingSearches = event.target.result.filter(item => item.type === 'saved_search');
+                
+                // Filter out results that are already saved
+                const uniqueResults = currentSearchResults.filter(newResult => {
+                    return !existingSearches.some(search => 
+                        search.results.some(existingResult => 
+                            existingResult.registrationNumber === newResult.registrationNumber &&
+                            existingResult.subjectName === newResult.subjectName
+                        )
+                    );
+                });
+
+                // If no new unique results, show message and return
+                if (uniqueResults.length === 0) {
+                    searchResultsSavedMessage.textContent = 'All selected results are already saved!';
+                    searchResultsSavedMessage.classList.remove('hidden');
+                    searchResultsSavedMessage.classList.add('search-results-saved');
+                    setTimeout(() => {
+                        searchResultsSavedMessage.classList.add('hidden');
+                    }, 3000);
+                    return;
+                }
+
+                // Save only unique results
+                const savedSearchData = {
+                    registrationNumber: searchId,
+                    type: 'saved_search',
+                    id: searchId,
+                    savedDate: new Date().toISOString(),
+                    searchTerm: searchTerm,
+                    results: uniqueResults
+                };
+
+                // Write the new unique results
+                const writeTransaction = db.transaction([storeName], 'readwrite');
+                const writeObjectStore = writeTransaction.objectStore(storeName);
+                const writeRequest = writeObjectStore.add(savedSearchData);
+
+                writeRequest.onsuccess = function() {
+                    const savedCount = uniqueResults.length;
+                    const skippedCount = currentSearchResults.length - uniqueResults.length;
+                    
+                    let message = `${savedCount} new result(s) saved successfully!`;
+                    if (skippedCount > 0) {
+                        message += ` (${skippedCount} duplicate(s) skipped)`;
+                    }
+                    
+                    searchResultsSavedMessage.textContent = message;
+                    searchResultsSavedMessage.classList.remove('hidden');
+                    searchResultsSavedMessage.classList.add('search-results-saved');
+                    
+                    displaySavedSearches();
+                    
+                    // Clear the search input
+                    subjectSearchInput.value = '';
+                    
+                    // Clear the search results table
+                    subjectSearchTableBody.innerHTML = `<tr><td colspan="4" class="text-center p-4">No results found</td></tr>`;
+                    
+                    // Disable the save button
+                    saveSearchResultsBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        searchResultsSavedMessage.classList.add('hidden');
+                    }, 3000);
+                };
+
+                writeRequest.onerror = function(event) {
+                    console.error('Error saving search results:', event.target.error);
+                    alert('Error saving search results. Please try again.');
+                };
+            };
+
+            request.onerror = function(event) {
+                console.error('Error checking existing searches:', event.target.error);
+                alert('Error checking existing searches. Please try again.');
+            };
+        }
+
+        // New function to display saved searches
+        function displaySavedSearches() {
+            const savedSearchesList = document.getElementById('savedSearchesList');
+            savedSearchesList.innerHTML = ''; // Clear previous content
+
+            if (!db) return;
+
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = function(event) {
+                const savedItems = event.target.result;
+                const savedSearches = savedItems.filter(item => item.type === 'saved_search');
+                
+                if (savedSearches.length === 0) {
+                    savedSearchesList.innerHTML = '<p>No saved searches</p>';
+                    return;
+                }
+
+                // Group searches by subject name
+                const searchesBySubject = {};
+                savedSearches.forEach(search => {
+                    search.results.forEach(result => {
+                        if (!searchesBySubject[result.subjectName]) {
+                            searchesBySubject[result.subjectName] = [];
+                        }
+                        searchesBySubject[result.subjectName].push({
+                            ...result,
+                            searchId: search.id
+                        });
+                    });
+                });
+
+                // Create tables for each subject
+                Object.entries(searchesBySubject).forEach(([subjectName, results]) => {
+                    const subjectDiv = document.createElement('div');
+                    subjectDiv.className = 'mb-8';
+
+                    // Create controls section
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'flex justify-between items-center mb-4 bg-gray-100 p-4 rounded';
+                    
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'text-xl font-semibold';
+                    titleDiv.textContent = `Subject: ${subjectName}`;
+                    
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'flex gap-4';
+                    
+                    // Grade filter dropdown
+                    const gradeSelect = document.createElement('select');
+                    gradeSelect.className = 'px-3 py-1 border rounded';
+                    gradeSelect.innerHTML = `
+                        <option value="">Filter by grade...</option>
+                        <option value="O+">O+ (100)</option>
+                        <option value="D++">D++ (90-99)</option>
+                        <option value="D+">D+ (80-89)</option>
+                        <option value="A++">A++ (70-79)</option>
+                        <option value="A">A (60-69)</option>
+                        <option value="B+">B+ (50-59)</option>
+                        <option value="B">B (40-49)</option>
+                        <option value="C+">C+ (30-39)</option>
+                        <option value="F">F (Below 30)</option>
+                    `;
+
+                    // Add event listener for grade filter
+                    gradeSelect.addEventListener('change', (e) => {
+                        const selectedGrade = e.target.value;
+                        if (!selectedGrade) {
+                            updateTable(results); // Show all results if no grade selected
+                            return;
+                        }
+                        
+                        const filteredResults = results.filter(result => {
+                            const marks = parseFloat(result.totalMarks);
+                            switch(selectedGrade) {
+                                case 'O+': return marks === 100;
+                                case 'D++': return marks >= 90 && marks < 100;
+                                case 'D+': return marks >= 80 && marks < 90;
+                                case 'A++': return marks >= 70 && marks < 80;
+                                case 'A': return marks >= 60 && marks < 70;
+                                case 'B+': return marks >= 50 && marks < 60;
+                                case 'B': return marks >= 40 && marks < 50;
+                                case 'C+': return marks >= 30 && marks < 40;
+                                case 'F': return marks < 30;
+                                default: return true;
+                            }
+                        });
+                        
+                        updateTable(filteredResults);
+                    });
+
+                    // PDF download button
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600';
+                    downloadBtn.textContent = 'Download PDF';
+                    downloadBtn.onclick = () => generatePDF(subjectName, results);
+                    
+                    actionsDiv.appendChild(gradeSelect); // Add the grade filter dropdown
+                    actionsDiv.appendChild(downloadBtn);
+                    
+                    controlsDiv.appendChild(titleDiv);
+                    controlsDiv.appendChild(actionsDiv);
+                    subjectDiv.appendChild(controlsDiv);
+
+                    // Create and populate table
+                    function updateTable(sortedResults = results) {
+                        const table = document.createElement('table');
+                        table.className = 'w-full border-collapse';
+                        table.innerHTML = `
+                            <thead>
+                                <tr class="bg-gray-200">
+                                    <th class="border p-2">Registration Number</th>
+                                    <th class="border p-2">Total Marks</th>
+                                    <th class="border p-2">Grade</th>
+                                    <th class="border p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedResults.map(result => `
+                                    <tr>
+                                        <td class="border p-2">${result.registrationNumber}</td>
+                                        <td class="border p-2">${parseInt(result.totalMarks)}</td>
+                                        <td class="border p-2">
+                                            <span class="px-2 py-1 rounded text-sm ${getPerformanceClass(result.totalMarks)}">
+                                                ${getGrade(result.totalMarks)}
+                                            </span>
+                                        </td>
+                                        <td class="border p-2">
+                                            <button onclick="deleteSavedSearch('${result.searchId}', '${result.registrationNumber}')" 
+                                                    class="bg-red-500 text-white px-2 py-1 rounded">
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        `;
+                        
+                        // Replace existing table if it exists
+                        const existingTable = subjectDiv.querySelector('table');
+                        if (existingTable) {
+                            existingTable.replaceWith(table);
+                        } else {
+                            subjectDiv.appendChild(table);
+                        }
+                    }
+
+                    // Initial table render
+                    updateTable();
+                    savedSearchesList.appendChild(subjectDiv);
+                });
+            };
+        }
+
+        // Function to compare values for sorting
+        function compareValues(a, b, orderBy, direction) {
+            if (orderBy === 'totalMarks') {
+                const aVal = parseFloat(a[orderBy]);
+                const bVal = parseFloat(b[orderBy]);
+                return direction === 'asc' ? aVal - bVal : bVal - aVal;
+            }
+            
+            if (orderBy === 'registrationNumber') {
+                return direction === 'asc' 
+                    ? a[orderBy].localeCompare(b[orderBy])
+                    : b[orderBy].localeCompare(a[orderBy]);
+            }
+            
+            return 0;
+        }
+
+        // Function to generate PDF
+        function generatePDF(subjectName, tableData) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(16);
+            doc.text(`Subject: ${subjectName}`, 14, 20);
+            
+            // Create table data for autoTable
+            const headers = [['Registration Number', 'Total Marks', 'Grade']];
+            const data = tableData.map(item => [
+                item.registrationNumber,
+                parseInt(item.totalMarks),
+                getGrade(item.totalMarks)
+            ]);
+            
+            // Add table
+            doc.autoTable({
+                head: headers,
+                body: data,
+                startY: 30,
+                theme: 'grid',
+                styles: { fontSize: 10 },
+                headStyles: { fillColor: [66, 139, 202] }
+            });
+            
+            // Download PDF
+            doc.save(`${subjectName.replace(/[^a-z0-9]/gi, '_')}_results.pdf`);
+        }
+
+        // Helper function to get grade based on marks
+        function getGrade(marks) {
+            const mark = parseInt(marks);
+            if (mark === 100) return 'O+';
+            if (mark >= 90 && mark < 100) return 'D++';
+            if (mark >= 80 && mark < 90) return 'D+';
+            if (mark >= 70 && mark < 80) return 'A++';
+            if (mark >= 60 && mark < 70) return 'A';
+            if (mark >= 50 && mark < 60) return 'B+';
+            if (mark >= 40 && mark < 50) return 'B';
+            if (mark >= 30 && mark < 40) return 'C+';
+            return 'F';
+        }
+
+        // Helper function to get performance class styling based on grade
+        function getPerformanceClass(marks) {
+            const grade = getGrade(marks);
+            const gradeClasses = {
+                'O+': 'bg-purple-100 text-purple-800',
+                'D++': 'bg-indigo-100 text-indigo-800',
+                'D+': 'bg-blue-100 text-blue-800',
+                'A++': 'bg-green-100 text-green-800',
+                'A': 'bg-emerald-100 text-emerald-800',
+                'B+': 'bg-yellow-100 text-yellow-800',
+                'B': 'bg-orange-100 text-orange-800',
+                'C+': 'bg-red-100 text-red-800',
+                'F': 'bg-gray-100 text-gray-800'
+            };
+            return gradeClasses[grade] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Function to delete a saved search
+        function deleteSavedSearch(searchId, registrationNumber) {
+            if (!db) {
+                console.error('Database not available');
+                return;
+            }
+
+            const transaction = db.transaction([storeName], 'readwrite');
+            const objectStore = transaction.objectStore(storeName);
+            
+            // First, get the saved search by type and id
+            const getRequest = objectStore.getAll();
+
+            getRequest.onsuccess = function(event) {
+                const allRecords = event.target.result;
+                const savedSearch = allRecords.find(record => 
+                    record.type === 'saved_search' && record.id === searchId
+                );
+
+                if (!savedSearch) {
+                    console.error('Saved search not found:', searchId);
+                    return;
+                }
+
+                // Filter out the specific registration entry
+                savedSearch.results = savedSearch.results.filter(result => 
+                    result.registrationNumber !== registrationNumber
+                );
+
+                // If there are still results, update the record
+                if (savedSearch.results.length > 0) {
+                    const updateRequest = objectStore.put(savedSearch);
+                    
+                    updateRequest.onsuccess = function() {
+                        console.log('Successfully updated saved search');
+                        displaySavedSearches(); // Refresh the display
+                    };
+
+                    updateRequest.onerror = function(error) {
+                        console.error('Error updating saved search:', error);
+                    };
+                } else {
+                    // If no results left, delete the entire search entry
+                    const deleteRequest = objectStore.delete(searchId);
+                    
+                    deleteRequest.onsuccess = function() {
+                        console.log('Successfully deleted empty search');
+                        displaySavedSearches(); // Refresh the display
+                    };
+
+                    deleteRequest.onerror = function(error) {
+                        console.error('Error deleting empty search:', error);
+                    };
+                }
+            };
+
+            getRequest.onerror = function(error) {
+                console.error('Error retrieving saved search:', error);
+            };
+        }
+
+        // Update the table generation in displaySavedSearches function
+        function updateTable(sortedResults = results) {
+            const table = document.createElement('table');
+            table.className = 'w-full border-collapse';
+            table.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2">Registration Number</th>
+                        <th class="border p-2">Total Marks</th>
+                        <th class="border p-2">Grade</th>
+                        <th class="border p-2">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedResults.map(result => `
+                        <tr>
+                            <td class="border p-2">${result.registrationNumber}</td>
+                            <td class="border p-2">${parseInt(result.totalMarks)}</td>
+                            <td class="border p-2">
+                                <span class="px-2 py-1 rounded text-sm ${getPerformanceClass(result.totalMarks)}">
+                                    ${getGrade(result.totalMarks)}
+                                </span>
+                            </td>
+                            <td class="border p-2">
+                                <button onclick="deleteSingleResult('${result.searchId}', '${result.registrationNumber}', '${subjectName}')" 
+                                        class="bg-red-500 text-white px-2 py-1 rounded">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            // Replace existing table if it exists
+            const existingTable = subjectDiv.querySelector('table');
+            if (existingTable) {
+                existingTable.replaceWith(table);
+            } else {
+                subjectDiv.appendChild(table);
+            }
+        }
+
+        // Subject Search Input Event Listener
+        subjectSearchInput.addEventListener('input', function() {
+            const searchTerm = this.value.trim();
+            
+            // Clear results if less than 3 characters
+            if (searchTerm.length < 2) {
+                subjectSearchTableBody.innerHTML = '';
+                saveSearchResultsBtn.disabled = true;
+                return;
+            }
+            performSubjectSearch(searchTerm);
+            updateAutocomplete(searchTerm);
+        });
+
+        // Function to get unique subjects from all registrations
+        function getAllUniqueSubjects() {
+            return new Promise((resolve, reject) => {
+                if (!db) {
+                    resolve([]);
+                    return;
+                }
+
+                const transaction = db.transaction([storeName], 'readonly');
+                const objectStore = transaction.objectStore(storeName);
+                const request = objectStore.getAll();
+
+                request.onsuccess = function(event) {
+                    const registrations = event.target.result.filter(item => item.type === 'registration');
+                    const uniqueSubjects = new Set();
+
+                    registrations.forEach(reg => {
+                        (reg.processedSubjects || []).forEach(subject => {
+                            uniqueSubjects.add(subject.subjectName.trim());
+                        });
+                    });
+
+                    resolve(Array.from(uniqueSubjects).sort());
+                };
+
+                request.onerror = function(event) {
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        // Modified displaySavedSearches function to include charts
+        function displaySavedSearches() {
+            const savedSearchesList = document.getElementById('savedSearchesList');
+            savedSearchesList.innerHTML = '';
+
+            if (!db) return;
+
+            const transaction = db.transaction([storeName], 'readonly');
+            const objectStore = transaction.objectStore(storeName);
+            const request = objectStore.getAll();
+
+            request.onsuccess = function(event) {
+                const savedItems = event.target.result;
+                const savedSearches = savedItems.filter(item => item.type === 'saved_search');
+                
+                if (savedSearches.length === 0) {
+                    savedSearchesList.innerHTML = '<p>No saved searches</p>';
+                    return;
+                }
+
+                // Group searches by subject name
+                const searchesBySubject = {};
+                savedSearches.forEach(search => {
+                    search.results.forEach(result => {
+                        if (!searchesBySubject[result.subjectName]) {
+                            searchesBySubject[result.subjectName] = [];
+                        }
+                        searchesBySubject[result.subjectName].push({
+                            ...result,
+                            searchId: search.id
+                        });
+                    });
+                });
+
+                // Create tables and charts for each subject
+                Object.entries(searchesBySubject).forEach(([subjectName, results]) => {
+                    const subjectDiv = document.createElement('div');
+                    subjectDiv.className = 'mb-8';
+
+                    // Create title and controls with toggle graph button
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'flex justify-between items-center mb-4 bg-gray-100 p-4 rounded';
+                    controlsDiv.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <div class="text-xl font-semibold">Subject: ${subjectName}</div>
+                            <button class="toggle-graph-btn bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center gap-2">
+                                <span class="graph-icon">📊</span>
+                                <span class="button-text">Show Graph</span>
+                            </button>
+                        </div>
+                        <div class="flex gap-4">
+                            <select class="grade-filter px-3 py-1 border rounded">
+                                <option value="">Filter by grade...</option>
+                                <option value="O+">O+ (100)</option>
+                                <option value="D++">D++ (90-99)</option>
+                                <option value="D+">D+ (80-89)</option>
+                                <option value="A++">A++ (70-79)</option>
+                                <option value="A">A (60-69)</option>
+                                <option value="B+">B+ (50-59)</option>
+                                <option value="B">B (40-49)</option>
+                                <option value="C+">C+ (30-39)</option>
+                                <option value="F">F (Below 30)</option>
+                            </select>
+                            <button class="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 download-pdf">
+                                Download PDF
+                            </button>
+                        </div>
+                    `;
+                    subjectDiv.appendChild(controlsDiv);
+
+                    // Create wrapper for table and chart
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'flex flex-col gap-4';
+
+                    // Create table container
+                    const tableContainer = document.createElement('div');
+                    tableContainer.className = 'w-full';
+
+                    // Create chart container
+                    const chartContainer = document.createElement('div');
+                    chartContainer.className = 'w-full hidden'; // Initially hidden
+                    chartContainer.style.height = '400px'; // Fixed height for the chart
+                    const canvas = document.createElement('canvas');
+                    chartContainer.appendChild(canvas);
+
+                    // Add both to wrapper
+                    wrapper.appendChild(tableContainer);
+                    wrapper.appendChild(chartContainer);
+                    subjectDiv.appendChild(wrapper);
+
+                    // Function to update both table and chart
+                    function updateDisplay(filteredResults = results) {
+                        // Update table
+                        tableContainer.innerHTML = `
+                            <table class="w-full border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="border p-2">Registration Number</th>
+                                        <th class="border p-2">Total Marks</th>
+                                        <th class="border p-2">Grade</th>
+                                        <th class="border p-2">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filteredResults.map(result => `
+                                        <tr>
+                                            <td class="border p-2">${result.registrationNumber}</td>
+                                            <td class="border p-2">${parseInt(result.totalMarks)}</td>
+                                            <td class="border p-2">
+                                                <span class="px-2 py-1 rounded text-sm ${getPerformanceClass(result.totalMarks)}">
+                                                    ${getGrade(result.totalMarks)}
+                                                </span>
+                                            </td>
+                                            <td class="border p-2">
+                                                <button onclick="deleteSavedSearch('${result.searchId}', '${result.registrationNumber}')" 
+                                                        class="bg-red-500 text-white px-2 py-1 rounded">
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        `;
+
+                        // Update chart if visible
+                        if (!chartContainer.classList.contains('hidden')) {
+                            updateChart(filteredResults);
+                        }
+                    }
+
+                    // Function to update chart
+                    function updateChart(filteredResults) {
+                        const chartData = {
+                            labels: filteredResults.map(r => r.registrationNumber),
+                            datasets: [{
+                                label: 'Marks',
+                                data: filteredResults.map(r => parseInt(r.totalMarks)),
+                                backgroundColor: filteredResults.map(r => getGradeColor(r.totalMarks)),
+                                borderColor: filteredResults.map(r => getGradeColor(r.totalMarks)),
+                                borderWidth: 1
+                            }]
+                        };
+
+                        const ctx = canvas.getContext('2d');
+                        if (canvas.chart) {
+                            canvas.chart.destroy();
+                        }
+                        canvas.chart = new Chart(ctx, {
+                            type: 'bar',
+                            data: chartData,
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                const marks = context.raw;
+                                                const grade = getGrade(marks);
+                                                return `Marks: ${marks}, Grade: ${grade}`;
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        max: 100,
+                                        title: {
+                                            display: true,
+                                            text: 'Marks'
+                                        }
+                                    },
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            text: 'Registration Number'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // Initial display
+                    updateDisplay();
+
+                    // Add event listeners
+                    const toggleGraphBtn = controlsDiv.querySelector('.toggle-graph-btn');
+                    const buttonText = toggleGraphBtn.querySelector('.button-text');
+                    
+                    toggleGraphBtn.addEventListener('click', () => {
+                        const isHidden = chartContainer.classList.contains('hidden');
+                        chartContainer.classList.toggle('hidden');
+                        buttonText.textContent = isHidden ? 'Hide Graph' : 'Show Graph';
+                        
+                        if (isHidden) {
+                            // Update chart when showing
+                            const currentResults = results.filter(result => {
+                                const gradeFilter = controlsDiv.querySelector('.grade-filter');
+                                return !gradeFilter.value || getGrade(result.totalMarks) === gradeFilter.value;
+                            });
+                            updateChart(currentResults);
+                        }
+                    });
+
+                    const gradeFilter = controlsDiv.querySelector('.grade-filter');
+                    gradeFilter.addEventListener('change', (e) => {
+                        const selectedGrade = e.target.value;
+                        const filteredResults = selectedGrade ? 
+                            results.filter(result => getGrade(result.totalMarks) === selectedGrade) : 
+                            results;
+                        updateDisplay(filteredResults);
+                    });
+
+                    const downloadBtn = controlsDiv.querySelector('.download-pdf');
+                    downloadBtn.addEventListener('click', () => generatePDF(subjectName, results));
+
+                    savedSearchesList.appendChild(subjectDiv);
+                });
+            };
+        }
+
+        // Helper function to get color based on grade
+        function getGradeColor(marks) {
+            const mark = parseInt(marks);
+            if (mark === 100) return '#9333ea'; // purple-600
+            if (mark >= 90) return '#4f46e5'; // indigo-600
+            if (mark >= 80) return '#2563eb'; // blue-600
+            if (mark >= 70) return '#16a34a'; // green-600
+            if (mark >= 60) return '#059669'; // emerald-600
+            if (mark >= 50) return '#ca8a04'; // yellow-600
+            if (mark >= 40) return '#ea580c'; // orange-600
+            if (mark >= 30) return '#dc2626'; // red-600
+            return '#4b5563'; // gray-600
+        }
+
+        // Function to update autocomplete dropdown
+        async function updateAutocomplete(searchTerm) {
+            const dropdown = document.getElementById('autocompleteDropdown');
+            const subjects = await getAllUniqueSubjects();
+            
+            if (!searchTerm) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            const matchingSubjects = subjects.filter(subject => 
+                subject.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            if (matchingSubjects.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            dropdown.innerHTML = matchingSubjects
+                .map(subject => `
+                    <div class="autocomplete-item" data-subject="${subject}">
+                        ${highlightMatch(subject, searchTerm)}
+                    </div>
+                `)
+                .join('');
+
+            dropdown.style.display = 'block';
+        }
+
+        // Function to highlight matching text
+        function highlightMatch(text, searchTerm) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            return text.replace(regex, '<strong>$1</strong>');
+        }
+
+        // Update event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('subjectSearchInput');
+            const dropdown = document.getElementById('autocompleteDropdown');
+
+            // Input event for live search
+            searchInput.addEventListener('input', async function() {
+                const searchTerm = this.value.trim();
+                await updateAutocomplete(searchTerm);
+                
+                if (searchTerm.length >= 2) {
+                    performSubjectSearch(searchTerm);
+                } else {
+                    subjectSearchTableBody.innerHTML = '';
+                    saveSearchResultsBtn.disabled = true;
+                }
+            });
+
+            // Click event for selecting an autocomplete item
+            dropdown.addEventListener('click', function(e) {
+                const item = e.target.closest('.autocomplete-item');
+                if (item) {
+                    const selectedSubject = item.dataset.subject;
+                    searchInput.value = selectedSubject;
+                    dropdown.style.display = 'none';
+                    performSubjectSearch(selectedSubject);
+                }
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.autocomplete-container')) {
+                    dropdown.style.display = 'none';
+                }
+            });
+
+            // Handle keyboard navigation
+            searchInput.addEventListener('keydown', function(e) {
+                const items = dropdown.getElementsByClassName('autocomplete-item');
+                const active = dropdown.querySelector('.autocomplete-item.active');
+                
+                switch(e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        if (!active && items.length) {
+                            items[0].classList.add('active');
+                        } else if (active && active.nextElementSibling) {
+                            active.classList.remove('active');
+                            active.nextElementSibling.classList.add('active');
+                        }
+                        break;
+                        
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        if (active && active.previousElementSibling) {
+                            active.classList.remove('active');
+                            active.previousElementSibling.classList.add('active');
+                        }
+                        break;
+                        
+                    case 'Enter':
+                        if (active) {
+                            e.preventDefault();
+                            searchInput.value = active.dataset.subject;
+                            dropdown.style.display = 'none';
+                            performSubjectSearch(active.dataset.subject);
+                        }
+                        break;
+                        
+                    case 'Escape':
+                        dropdown.style.display = 'none';
+                        break;
+                }
+            });
+        });
+
+        // Add event listener for the save button
+        saveSearchResultsBtn.addEventListener('click', saveSearchResults);
+    </script>
+</body>
+</html>

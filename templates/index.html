@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGPA CALCULATOR</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style> 
+        /* Add any additional styles here */
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">CUMULATIVE GRADE POINT AVERAGE (CGPA) CALCULATOR</h1>
+        
+        <!-- Mode Selection -->
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="unlimitedModeBtn" class="mode-button bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 active">
+                CLASS WISE
+            </button>
+            <button id="limitedModeBtn" class="mode-button bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600">
+                STUDENT WISE
+            </button>
+        </div>
+        
+        <!-- Current Mode Display -->
+        <div id="modeDisplay" class="text-center mb-4">
+            <span class="text-gray-600 font-medium">Current Mode: </span>
+            <span id="currentMode" class="text-blue-600 font-bold">Class Wise</span>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Upload Images</h2>
+            <form id="uploadForm" class="space-y-4">
+                <div class="upload-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input type="file" id="fileInput" accept=".png,.jpg,.jpeg" multiple class="hidden">
+                    <label for="fileInput" class="cursor-pointer">
+                        <div class="flex flex-col items-center space-y-4">
+                            <div class="text-blue-500 hover:text-blue-600 font-medium">
+                                Click to upload multiple images or drag and drop
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                Supported formats: PNG, JPG, JPEG
+                            </div>
+                        </div>
+                    </label>
+                </div>
+                <div id="filePreview" class="hidden space-y-2">
+                    <!-- Selected files will be listed here -->
+                </div>
+                <div id="uploadProgress" class="hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="progressText" class="text-sm text-gray-600 mt-2 text-center">Processing images: 0/0</p>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition duration-200">
+                    Process Images
+                </button>
+            </form>
+        </div>
+
+        <!-- Loading Container -->
+        <div id="loadingContainer" class="hidden">
+            <div class="flex flex-col items-center justify-center space-y-4 py-8">
+                <div class="loading-spinner w-12 h-12 border-4 border-blue-200 rounded-full"></div>
+                <p class="text-gray-600 font-medium">Processing Images...</p>
+            </div>
+        </div>
+
+        <!-- Add this right after the mode selection buttons -->
+        <div id="studentLimitDisplay" class="text-center mb-4 hidden">
+            <div class="bg-blue-100 border border-blue-200 rounded-lg p-4">
+                <span class="text-blue-800 font-medium">Remaining allowed marksheets: </span>
+                <span id="imagesRemaining" class="text-blue-800 font-bold">6</span>
+            </div>
+        </div>
+        
+        <!-- Clear Records Button -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <button id="clearRecordsBtn" class="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition duration-200">
+                Clear All Records
+            </button>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden space-y-8">
+            <!-- Registration Number -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Registration Number</h2>
+                <p id="regNumber" class="text-lg font-medium"></p>
+            </div>
+            
+            <!-- Statistics -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Statistics</h2>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="font-medium text-gray-600">Core Papers</p>
+                        <p id="numCore" class="text-2xl font-bold text-blue-600"></p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="font-medium text-gray-600">Total Papers</p>
+                        <p id="numTotal" class="text-2xl font-bold text-blue-600"></p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="font-medium text-gray-600">Ratio</p>
+                        <p id="ratio" class="text-2xl font-bold text-blue-600"></p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="font-medium text-gray-600">Average Core Marks</p>
+                        <p id="avgMarks" class="text-2xl font-bold text-blue-600"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Core Papers -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Core Papers</h2>
+                <div id="corePapers" class="space-y-4"></div>
+            </div>
+
+            <!-- Annotated Image -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Annotated Image</h2>
+                <img id="annotatedImage" class="w-full rounded-lg shadow-sm" alt="Annotated result">
+            </div>
+            
+            <!-- Student Records with Sorting and Delete -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Student Records</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex space-x-4">
+                        <div class="relative">
+                            <select id="sortField" class="bg-white border border-gray-300 rounded-lg px-4 py-2 appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="registration_number">Sort by Registration</option>
+                                <option value="average_marks">Sort by Marks</option>
+                                <option value="rank" class="hidden">Sort by Rank</option>
+                            </select>
+                        </div>
+                        <div class="relative">
+                            <select id="sortDirection" class="bg-white border border-gray-300 rounded-lg px-4 py-2 appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="asc">Ascending</option>
+                                <option value="desc">Descending</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button id="deleteSelectedBtn" class="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition duration-200">
+                            Delete Selected
+                        </button>
+                        <button id="showRankBtn" class="bg-purple-500 text-white py-2 px-4 rounded-lg hover:bg-purple-600 transition duration-200">
+                            Show Rankings
+                        </button>
+                        <button id="downloadPdfBtn" class="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition duration-200">
+                            Download PDF
+                        </button>
+                        <button id="downloadRankedPdfBtn" class="bg-indigo-500 text-white py-2 px-4 rounded-lg hover:bg-indigo-600 transition duration-200">
+                            Download PDF with Ranks
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border px-2 py-2 text-center">
+                                    <input type="checkbox" id="selectAllCheckbox">
+                                </th>
+                                <th class="border px-4 py-2 font-semibold sort-header" data-sort="registration_number">
+                                    Registration Number
+                                    <span class="sort-icon"></span>
+                                </th>
+                                <th class="border px-4 py-2 font-semibold sort-header" data-sort="average_marks">
+                                    CGPA
+                                    <span class="sort-icon"></span>
+                                </th>
+                                <th id="rankHeader" class="border px-4 py-2 font-semibold sort-header hidden" data-sort="rank">
+                                    Rank
+                                    <span class="sort-icon"></span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentRecords">
+                            <!-- Will be populated dynamically -->
+                        </tbody>
+                        <tfoot id="totalAverage" class="hidden">
+                            <tr class="bg-gray-100">
+                                <td colspan="2" class="border px-4 py-2 font-bold">Total Average</td>
+                                <td class="border px-4 py-2 font-bold" id="totalAverageValue"></td>
+                                <td class="border px-4 py-2 hidden" id="totalAverageRank"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Student Details Section -->
+        <div id="studentDetailsSection" class="bg-white p-6 rounded-lg shadow-md mb-8 hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold" id="studentDetailsTitle">Student Details</h2>
+                <button id="closeStudentDetailsSection" class="text-gray-600 hover:text-gray-900 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        
+            <div class="grid grid-cols-2 gap-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium text-gray-600">Registration Number</p>
+                    <p id="sectionRegNumber" class="text-xl font-bold"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium text-gray-600">Average Marks</p>
+                    <p id="sectionAverageMarks" class="text-xl font-bold"></p>
+                </div>
+            </div>
+        
+            <div class="mt-6">
+                <h3 class="text-xl font-semibold mb-4">Core Papers</h3>
+                <div id="sectionCorePapers" class="space-y-4"></div>
+            </div>
+        
+            <div class="mt-6 grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium text-gray-600">Total Core Papers</p>
+                    <p id="sectionNumCorePapers" class="text-xl font-bold"></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium text-gray-600">Rank</p>
+                    <p id="sectionRank" class="text-xl font-bold"></p>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            let currentMode = 'class wise';
+            let isFirstUpload = true;
+            let rankings = [];
+            let showingRanks = false;
+            let currentSort = {
+                field: 'registration_number',
+                direction: 'asc'
+            };
+
+            let firstUploadedRegNumber = null;
+            let remainingImages = 6;
+
+            document.getElementById('unlimitedModeBtn').addEventListener('click', function() {
+                if (currentMode !== 'class wise') {
+                    this.classList.add('active');
+                    document.getElementById('limitedModeBtn').classList.remove('active');
+                    switchMode('class wise');
+                }
+            });
+
+            document.getElementById('limitedModeBtn').addEventListener('click', function() {
+                if (currentMode !== 'student wise') {
+                    this.classList.add('active');
+                    document.getElementById('unlimitedModeBtn').classList.remove('active');
+                    switchMode('student wise');
+                }
+            });
+
+            // Initialize sorting functionality
+            document.getElementById('sortField').addEventListener('change', function(e) {
+                currentSort.field = e.target.value;
+                loadStudentRecords();
+            });
+
+            document.getElementById('sortDirection').addEventListener('change', function(e) {
+                currentSort.direction = e.target.value;
+                loadStudentRecords();
+            });
+
+            // Show/Hide Rankings functionality
+            document.getElementById('showRankBtn').addEventListener('click', async () => {
+                const rankHeader = document.getElementById('rankHeader');
+                const showRankBtn = document.getElementById('showRankBtn');
+                const rankSortOption = document.querySelector('option[value="rank"]');
+                
+                if (!showingRanks) {
+                    try {
+                        const response = await fetch('/get_rankings');
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            console.error('Error fetching rankings:', data.error);
+                            return;
+                        }
+                        
+                        rankings = data.rankings;
+                        rankHeader.classList.remove('hidden');
+                        showRankBtn.textContent = 'Hide Rankings';
+                        showRankBtn.classList.remove('bg-purple-500', 'hover:bg-purple-600');
+                        showRankBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+                        
+                        rankSortOption.classList.remove('hidden');
+                        
+                        const rows = document.querySelectorAll('#studentRecords tr');
+                        rows.forEach(row => {
+                            const regNumber = row.cells[1].textContent; // Adjusted to match the new structure
+                            const ranking = rankings.find(r => r.registration_number === regNumber);
+                            if (ranking) {
+                                const rankCell = document.createElement('td');
+                                rankCell.className = 'border px-4 py-2';
+                                rankCell.textContent = `${ranking.rank}${getRankSuffix(ranking.rank)}`;
+                                row.appendChild(rankCell);
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                } else {
+                    rankHeader.classList.add('hidden');
+                    showRankBtn.textContent = 'Show Rankings';
+                    showRankBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                    showRankBtn.classList.add('bg-purple-500', 'hover:bg-purple-600');
+                    
+                    rankSortOption.classList.add('hidden');
+                    if (currentSort.field === 'rank') {
+                        currentSort.field = 'registration_number';
+                        document.getElementById('sortField').value = 'registration_number';
+                    }
+                    
+                    const rows = document.querySelectorAll('#studentRecords tr');
+                    rows.forEach(row => {
+                        if (row.cells.length > 3) {
+                            row.deleteCell(3); // Adjusted to match the new structure
+                        }
+                    });
+                }
+                
+                showingRanks = !showingRanks;
+                updateDownloadButtonsVisibility();
+                loadStudentRecords();
+            });
+
+            // Helper function for rank suffixes
+            function getRankSuffix(rank) {
+                if (rank >= 11 && rank <= 13) {
+                    return 'th';
+                }
+                switch (rank % 10) {
+                    case 1: return 'st';
+                    case 2: return 'nd';
+                    case 3: return 'rd';
+                    default: return 'th';
+                }
+            }
+
+            // Update images remaining count
+            async function updateImagesRemaining() {
+                if (currentMode === 'student wise') {
+                    const response = await fetch(`/get_students/student wise`);
+                    const data = await response.json();
+                    const remaining = Math.max(0, 6 - (data.students ? data.students.length : 0));
+                    document.getElementById('imagesRemaining').textContent = remaining;
+                }
+            }
+
+            // Load student records
+            async function loadStudentRecords() {
+                try {
+                    const response = await fetch(
+                        `/get_students/${currentMode}?sort=${currentSort.field}&direction=${currentSort.direction}`
+                    );
+                    const data = await response.json();
+                    
+                    const studentRecords = document.getElementById('studentRecords');
+                    const totalAverageRow = document.getElementById('totalAverage');
+                    const totalAverageValue = document.getElementById('totalAverageValue');
+                    
+                    if (data.students && data.students.length > 0) {
+                        let currentRankings = [];
+                        if (showingRanks) {
+                            const rankResponse = await fetch('/get_rankings');
+                            const rankData = await rankResponse.json();
+                            currentRankings = rankData.rankings;
+                        }
+
+                        // Sort the data based on current sort settings
+                        const sortedStudents = [...data.students].sort((a, b) => {
+                            let compareA, compareB;
+                            
+                            switch(currentSort.field) {
+                                case 'registration_number':
+                                    compareA = a.registration_number;
+                                    compareB = b.registration_number;
+                                    break;
+                                case 'average_marks':
+                                    compareA = parseFloat(a.average_marks);
+                                    compareB = parseFloat(b.average_marks);
+                                    break;
+                                case 'rank':
+                                    const rankA = currentRankings.find(r => r.registration_number === a.registration_number)?.rank || 0;
+                                    const rankB = currentRankings.find(r => r.registration_number === b.registration_number)?.rank || 0;
+                                    compareA = rankA;
+                                    compareB = rankB;
+                                    break;
+                                default:
+                                    compareA = a.registration_number;
+                                    compareB = b.registration_number;
+                            }
+                            
+                            return currentSort.direction === 'asc' ? (compareA > compareB ? 1 : -1) : (compareA < compareB ? 1 : -1);
+                        });
+
+                        studentRecords.innerHTML = sortedStudents.map(student => {
+                            let rankDisplay = '';
+                            if (showingRanks && currentRankings.length > 0) {
+                                const studentRank = currentRankings.find(r => r.registration_number === student.registration_number);
+                                if (studentRank) {
+                                    const rankWithSuffix = `${studentRank.rank}${getRankSuffix(studentRank.rank)}`;
+                                    rankDisplay = `<td class="border px-4 py-2">${rankWithSuffix}</td>`;
+                                }
+                            }
+
+                            const averageMarks = student.average_marks;
+                            const performanceColor = averageMarks <= 6 ? 'text-red-600' : 'text-green-600';
+                            const performanceWeight = 'font-semibold';
+
+                            return `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="border px-2 py-2 text-center">
+                                        <input type="checkbox" class="delete-checkbox" data-reg-number="${student.registration_number}">
+                                    </td>
+                                    <td class="border px-4 py-2">${student.registration_number}</td>
+                                    <td class="border px-4 py-2 ${performanceColor} ${performanceWeight}">${averageMarks.toFixed(2)}</td>
+                                    ${showingRanks ? rankDisplay : ''}
+                                </tr>
+                            `;
+                        }).join('');
+                        
+                        if (currentMode === 'student wise' && data.total_average !== null) {
+                            totalAverageRow.classList.remove('hidden');
+                            totalAverageValue.textContent = data.total_average.toFixed(2);
+                        } else {
+                            totalAverageRow.classList.add('hidden');
+                        }
+
+                        // Update sort indicators in table headers
+                        document.querySelectorAll('.sort-header').forEach(header => {
+                            const sortField = header.dataset.sort;
+                            header.classList.remove('sort-asc', 'sort-desc');
+                            if (sortField === currentSort.field) {
+                                header.classList.add(`sort-${currentSort.direction}`);
+                            }
+                        });
+
+                        
+
+                        // Add event listeners for checkboxes
+                        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                        selectAllCheckbox.addEventListener('change', function() {
+                            const checkboxes = document.querySelectorAll('.delete-checkbox');
+                            checkboxes.forEach(checkbox => {
+                                checkbox.checked = this.checked;
+                            });
+                        });
+
+                    } else {
+                        studentRecords.innerHTML = `
+                            <tr>
+                                <td class="border px-4 py-2 text-center text-gray-500" colspan="${showingRanks ? 4 : 3}">
+                                    No records found
+                                </td>
+                            </tr>
+                        `;
+                        totalAverageRow.classList.add('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error loading student records:', error);
+                }
+            }
+
+            // Add delete selected functionality
+            document.getElementById('deleteSelectedBtn').addEventListener('click', async () => {
+                const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
+
+                if (checkboxes.length === 0) {
+                    alert('Please select records to delete');
+                    return;
+                }
+
+                const registrationNumbers = Array.from(checkboxes).map(
+                    checkbox => checkbox.getAttribute('data-reg-number')
+                );
+
+                try {
+                    const response = await fetch(`/delete_students/${currentMode}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ registration_numbers: registrationNumbers })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Check if any of the deleted registration numbers match the currently displayed student details
+                        const studentDetailsSection = document.getElementById('studentDetailsSection');
+                        const displayedRegNumber = document.getElementById('sectionRegNumber')?.textContent;
+                        
+                        if (displayedRegNumber && registrationNumbers.includes(displayedRegNumber)) {
+                            studentDetailsSection.classList.add('hidden');
+                        }
+
+                        // Remove rows from the table
+                        registrationNumbers.forEach(regNumber => {
+                            const rowToRemove = document.querySelector(`tr:has(.delete-checkbox[data-reg-number="${regNumber}"])`);
+                            if (rowToRemove) {
+                                rowToRemove.remove();
+                            }
+                        });
+
+                        // Reload student records to ensure consistency
+                        await loadStudentRecords();
+
+                        // Reset select all checkbox
+                        document.getElementById('selectAllCheckbox').checked = false;
+
+                        // Show success message
+                        alert(`Successfully deleted ${registrationNumbers.length} record(s)`);
+                    } else {
+                        console.error('Deletion error:', data.error);
+                        alert(data.error || 'Failed to delete records');
+                    }
+                } catch (error) {
+                    console.error('Deletion request failed:', error);
+                    alert('An error occurred while deleting records');
+                }
+            });
+
+            // Clear records functionality
+            async function clearRecords() {
+                try {
+                    const response = await fetch(`/clear_records/${currentMode}`, {
+                        method: 'POST',
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        // Hide student details section
+                        document.getElementById('studentDetailsSection').classList.add('hidden');
+                        
+                        await loadStudentRecords();
+                        updateImagesRemaining();
+                    } else {
+                        console.error('Error clearing records:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error clearing records:', error);
+                }
+            }
+
+            // Mode switching functionality
+            function switchMode(mode) {
+                currentMode = mode;
+                isFirstUpload = true;
+                firstUploadedRegNumber = null; // Reset the registration number
+                remainingImages = 6; // Reset the counter
+
+                // Update UI elements
+                document.getElementById('currentMode').textContent = mode === 'class wise' ? 'Class Wise' : 'Student Wise';
+                document.getElementById('currentMode').className = mode === 'class wise' ? 'text-blue-600 font-bold' : 'text-green-600 font-bold';
+                
+                // Reset sorting
+                currentSort = {
+                    field: 'registration_number',
+                    direction: 'asc'
+                };
+                document.getElementById('sortField').value = 'registration_number';
+                document.getElementById('sortDirection').value = 'asc';
+
+                // Handle rank-related elements
+                const rankOption = document.querySelector('option[value="rank"]');
+                rankOption.classList.add('hidden');
+                showingRanks = false;
+                
+                const rankHeader = document.getElementById('rankHeader');
+                rankHeader.classList.add('hidden');
+
+                // Update button visibility
+                document.getElementById('showRankBtn').style.display = mode === 'class wise' ? 'block' : 'none';
+                updateDownloadButtonsVisibility();
+
+                // Reset form and results
+                document.getElementById('uploadForm').reset();
+                document.getElementById('results').classList.add('hidden');
+                document.getElementById('filePreview').classList.add('hidden');
+                
+                // Clear selected files
+                selectedFiles = [];
+                
+                // Reload student records
+                loadStudentRecords();
+
+                // Show/hide student limit display
+                const studentLimitDisplay = document.getElementById('studentLimitDisplay');
+                if (mode === 'student wise') {
+                    studentLimitDisplay.classList.remove('hidden');
+                    document.getElementById('imagesRemaining').textContent = remainingImages;
+                } else {
+                    studentLimitDisplay.classList.add('hidden');
+                }
+            }
+
+            // Add this at the beginning of your JavaScript code, before any event listeners
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize the download ranked PDF button as hidden
+                const downloadRankedPdfBtn = document.getElementById('downloadRankedPdfBtn');
+                downloadRankedPdfBtn.style.display = 'none';
+            });
+
+            // PDF download functionality
+            document.getElementById('downloadPdfBtn').addEventListener('click', async () => {
+                try {
+                    // Get current sorting parameters
+                    const sortParams = new URLSearchParams({
+                        sort: currentSort.field,
+                        direction: currentSort.direction
+                    });
+
+                    // Make the request with current sorting parameters
+                    const response = await fetch(`/download_records/${currentMode}?${sortParams.toString()}`);
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to download PDF');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `student_records_${currentMode}_${currentSort.field}_${currentSort.direction}.pdf`;
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } catch (error) {
+                    console.error('Error downloading PDF:', error);
+                    alert('Error downloading PDF: ' + error.message);
+                }
+            });
+
+            document.getElementById('downloadRankedPdfBtn').addEventListener('click', async () => {
+                if (!showingRanks) {
+                    alert('Please show rankings before downloading ranked PDF');
+                    return;
+                }
+
+                try {
+                    // Get current sorting parameters
+                    const sortParams = new URLSearchParams({
+                        sort: currentSort.field,
+                        direction: currentSort.direction
+                    });
+
+                    const response = await fetch(`/download_records_with_ranks/${currentMode}?${sortParams.toString()}`);
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to download ranked PDF');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.download = `student_rankings_${currentMode}_${currentSort.field}_${currentSort.direction}.pdf`;
+                    a.href = url;
+
+                    document.body.appendChild(a);
+                    a.click();
+
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } catch (error) {
+                    console.error('Error downloading ranked PDF:', error);
+                    alert('Error downloading ranked PDF: ' + error.message);
+                }
+            });
+
+            // Update button visibility
+            function updateDownloadButtonsVisibility() {
+                const downloadRankedPdfBtn = document.getElementById('downloadRankedPdfBtn');
+                if (currentMode === 'student wise' || !showingRanks) {
+                    downloadRankedPdfBtn.style.display = 'none';
+                } else {
+                    downloadRankedPdfBtn.style.display = 'block';
+                }
+            }
+
+            // File handling
+            let selectedFiles = [];
+
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                const files = Array.from(e.target.files);
+                const imageFiles = files.filter(file => 
+                    file.type.startsWith('image/') && 
+                    ['jpeg', 'jpg', 'png'].includes(file.type.split('/')[1].toLowerCase())
+                );
+                
+                selectedFiles = [...selectedFiles, ...imageFiles];
+                updateFilePreview();
+            });
+
+            function updateFilePreview() {
+                const previewContainer = document.getElementById('filePreview');
+                if (selectedFiles.length === 0) {
+                    previewContainer.classList.add('hidden');
+                    return;
+                }
+
+                previewContainer.classList.remove('hidden');
+                previewContainer.innerHTML = selectedFiles.map((file, index) => `
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-gray-700">${file.name}</span>
+                            <span class="text-sm text-gray-500">${(file.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <button type="button" class="remove-file text-red-500 hover:text-red-700" data-index="${index}">
+                            Remove
+                        </button>
+                    </div>
+                `).join('');
+
+                // Add event listeners for remove buttons
+                document.querySelectorAll('.remove-file').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        selectedFiles = selectedFiles.filter((_, i) => i !== index);
+                        updateFilePreview();
+                    });
+                });
+            }
+
+            // Modify form submission handler
+            document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                if (selectedFiles.length === 0) {
+                    alert('Please select files to upload');
+                    return;
+                }
+
+                if (currentMode === 'student wise') {
+                    if (selectedFiles.length > remainingImages) {
+                        alert(`You can only upload ${remainingImages} more marksheet(s) in Student Wise mode`);
+                        return;
+                    }
+                }
+
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                const uploadProgress = document.getElementById('uploadProgress');
+                const loadingContainer = document.getElementById('loadingContainer');
+
+                uploadProgress.classList.remove('hidden');
+                loadingContainer.classList.remove('hidden');
+
+                try {
+                    if (isFirstUpload) {
+                        const clearResponse = await fetch(`/clear_records/${currentMode}`, {
+                            method: 'POST',
+                        });
+                        const clearData = await clearResponse.json();
+                        if (!clearData.success) {
+                            throw new Error('Failed to clear previous records');
+                        }
+                        isFirstUpload = false;
+                        firstUploadedRegNumber = null;
+                    }
+
+                    for (let i = 0; i < selectedFiles.length; i++) {
+                        const formData = new FormData();
+                        formData.append('file', selectedFiles[i]);
+
+                        const progress = ((i + 1) / selectedFiles.length) * 100;
+                        progressBar.style.width = `${progress}%`;
+                        progressText.textContent = `Processing images: ${i + 1}/${selectedFiles.length}`;
+
+                        const response = await fetch(`/upload/${currentMode}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+
+                        if (data.error) {
+                            throw new Error(`Error processing ${selectedFiles[i].name}: ${data.error}`);
+                        }
+
+                        // Check registration number consistency in student wise mode
+                        if (currentMode === 'student wise') {
+                            if (!firstUploadedRegNumber) {
+                                firstUploadedRegNumber = data.registration_number;
+                            } else if (data.registration_number !== firstUploadedRegNumber) {
+                                throw new Error(`Registration number mismatch!\nFirst uploaded marksheet: ${firstUploadedRegNumber}\nCurrent marksheet: ${data.registration_number}`);
+                            }
+                            
+                            // Update remaining images count
+                            remainingImages--;
+                            document.getElementById('imagesRemaining').textContent = remainingImages;
+                        }
+
+                        // Update UI with success state
+                        document.getElementById('results').classList.remove('hidden');
+                        
+                        // Update result fields
+                        document.getElementById('regNumber').textContent = data.registration_number || 'Not found';
+                        document.getElementById('numCore').textContent = data.statistics.num_core_papers;
+                        document.getElementById('numTotal').textContent = data.statistics.num_total_papers;
+                        document.getElementById('ratio').textContent = data.statistics.ratio.toFixed(2);
+                        document.getElementById('avgMarks').textContent = data.statistics.average_core_marks.toFixed(2);
+
+                        // Update core papers display
+                        const corePapersDiv = document.getElementById('corePapers');
+                        corePapersDiv.innerHTML = data.core_papers.map(paper => `
+                            <div class="border-b pb-2">
+                                <p class="font-medium">${paper.name}</p>
+                                <p class="text-sm text-gray-600">Words: ${paper.words.join(', ')}</p>
+                            </div>
+                        `).join('');
+
+                        // Update image
+                        document.getElementById('annotatedImage').src = `data:image/jpeg;base64,${data.annotated_image}`;
+
+                        // Refresh student records
+                        if (data.registration_number && data.statistics.average_core_marks) {
+                            await loadStudentRecords();
+                        }
+                    }
+
+                    // Clear file input and preview after successful upload
+                    selectedFiles = [];
+                    updateFilePreview();
+                    document.getElementById('fileInput').value = '';
+
+                    // Update remaining images count for student wise mode
+                    if (currentMode === 'student wise') {
+                        updateImagesRemaining();
+                    }
+
+                } catch (error) {
+                    // Show error message
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4';
+                    errorDiv.innerHTML = `
+                        <strong class="font-bold">Error:</strong>
+                        <span class="block sm:inline"> ${error.message}</span>
+                        <span class="absolute top-0 right-0 px-4 py-3">
+                            <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <title>Close</title>
+                                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                            </svg>
+                        </span>
+                    `;
+
+                    const form = document.getElementById('uploadForm');
+                    form.insertBefore(errorDiv, form.firstChild);
+
+                    setTimeout(() => {
+                        errorDiv.remove();
+                    }, 5000);
+                } finally {
+                    // Hide progress and loading indicators
+                    uploadProgress.classList.add('hidden');
+                    loadingContainer.classList.add('hidden');
+                }
+            });
+
+            // Enhance drag and drop functionality for multiple files
+            const dropZone = document.querySelector('.upload-zone');
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-blue-500');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-blue-500');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-blue-500');
+
+                const files = Array.from(e.dataTransfer.files).filter(file => 
+                    file.type.startsWith('image/') && 
+                    ['jpeg', 'jpg', 'png'].includes(file.type.split('/')[1].toLowerCase())
+                );
+
+                if (files.length) {
+                    selectedFiles = [...selectedFiles, ...files];
+                    updateFilePreview();
+                }
+            });
+
+            // Function to fetch student details by registration number
+            async function fetchStudentDetails(registrationNumber) {
+                try {
+                    // First, get regular student records
+                    const studentsResponse = await fetch(`/get_students/${currentMode}`);
+                    const studentsData = await studentsResponse.json();
+
+                    // Get rankings if available
+                    let rankingsData = { rankings: [] };
+                    if (currentMode === 'class wise') {
+                        const rankResponse = await fetch('/get_rankings');
+                        rankingsData = await rankResponse.json();
+                    }
+
+                    // Find the specific student's details
+                    const studentRecord = studentsData.students.find(
+                        student => student.registration_number === registrationNumber
+                    );
+
+                    const studentRanking = rankingsData.rankings.find(
+                        ranking => ranking.registration_number === registrationNumber
+                    );
+
+                    return {
+                        student: studentRecord,
+                        ranking: studentRanking
+                    };
+                } catch (error) {
+                    console.error('Error fetching student details:', error);
+                    return null;
+                }
+            }
+
+            // Function to reset registration number state
+            function resetRegistrationNumberState(mode) {
+                fetch(`/clear_records/${mode}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear the stored registration number in client-side storage
+                        localStorage.removeItem('firstLimitedRegNumber');
+
+                        // Optionally, clear the table or perform any UI updates
+                        updateStudentTable(mode);
+
+                        alert('Records cleared successfully');
+                    } else {
+                        alert('Error clearing records: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while clearing records');
+                });
+            }
+
+            // Add event listener for page load to reset registration number
+            window.addEventListener('load', function() {
+                // Remove any stored registration number when page is refreshed
+                localStorage.removeItem('firstLimitedRegNumber');
+            });
+
+            // Add this function to handle file upload with registration number validation
+            // Modify upload function to use localStorage for tracking
+            function uploadFile(mode) {
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    alert('Please select a file to upload');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch(`/upload/${mode}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Check for registration number mismatch error
+                    if (data.error && data.first_reg_number) {
+                        alert(`Registration number does not match. 
+First uploaded image was for student: ${data.first_reg_number}
+Current image is for student: ${data.current_reg_number}`);
+
+                        // Clear the file input
+                        fileInput.value = '';
+                        return;
+                    }
+
+                    // Handle successful upload
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    // If in limited mode, store the first registration number
+                    if (mode === 'student wise' && data.registration_number) {
+                        localStorage.setItem('firstLimitedRegNumber', data.registration_number);
+                    }
+
+                    // Process successful upload
+                    console.log('Upload successful', data);
+                    updateStudentTable(mode);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred during upload');
+                });
+            }
+
+            // Section population function
+            async function showStudentDetailsSection(registrationNumber) {
+                const section = document.getElementById('studentDetailsSection');
+                const sectionRegNumber = document.getElementById('sectionRegNumber');
+                const sectionAverageMarks = document.getElementById('sectionAverageMarks');
+                const sectionCorePapers = document.getElementById('sectionCorePapers');
+                const sectionNumCorePapers = document.getElementById('sectionNumCorePapers');
+                const sectionRank = document.getElementById('sectionRank');
+
+                const studentDetails = await fetchStudentDetails(registrationNumber);
+
+                if (!studentDetails || !studentDetails.student) {
+                    alert('Student details not found');
+                    return;
+                }
+
+                // Populate section with student details
+                sectionRegNumber.textContent = registrationNumber;
+                sectionAverageMarks.textContent = studentDetails.student.average_marks.toFixed(2);
+
+                // Add section functionality to the most recently processed image details
+                const lastProcessedResults = document.getElementById('results');
+                if (lastProcessedResults && !lastProcessedResults.classList.contains('hidden')) {
+                    const corePapers = document.getElementById('corePapers').children;
+                    sectionCorePapers.innerHTML = Array.from(corePapers).map(paper => paper.outerHTML).join('');
+                    sectionNumCorePapers.textContent = corePapers.length;
+                } else {
+                    sectionCorePapers.innerHTML = '<p class="text-gray-500">No core papers available</p>';
+                    sectionNumCorePapers.textContent = 'N/A';
+                }
+
+                // Populate rank if available
+                if (studentDetails.ranking) {
+                    const rankWithSuffix = `${studentDetails.ranking.rank}${getRankSuffix(studentDetails.ranking.rank)}`;
+                    sectionRank.textContent = rankWithSuffix;
+                } else {
+                    sectionRank.textContent = 'N/A';
+                }
+
+                // Show section
+                section.classList.remove('hidden');
+            }
+
+            // Add click event to registration number cells
+            function addRegistrationNumberClickHandlers() {
+                const studentRecords = document.getElementById('studentRecords');
+                studentRecords.addEventListener('click', (event) => {
+                    const cell = event.target.closest('td');
+                    if (cell && cell.cellIndex === 1) {  // Second column (registration number)
+                        const registrationNumber = cell.textContent;
+                        showStudentDetailsSection(registrationNumber);
+                    }
+                });
+            }
+
+            // Close section event listener
+            function initializeStudentDetailsSection() {
+                document.getElementById('closeStudentDetailsSection').addEventListener('click', () => {
+                    document.getElementById('studentDetailsSection').classList.add('hidden');
+                });
+
+                addRegistrationNumberClickHandlers();
+            }
+
+            // Initialize the details section when the page loads
+            document.addEventListener('DOMContentLoaded', initializeStudentDetailsSection);
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
+    </div>
+</body>
+</html>
+

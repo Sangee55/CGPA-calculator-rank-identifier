@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        .chat-bubble {
+            position: relative;
+        }
+        .chat-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            height: 12px;
+            width: 12px;
+        }
+        .bot-bubble::before {
+            left: -6px;
+            border-radius: 0 0 12px 0;
+            background: #EFF6FF;
+        }
+        .user-bubble::before {
+            right: -6px;
+            border-radius: 0 0 0 12px;
+            background: #2563EB;
+        }
+        .quick-action {
+            @apply cursor-pointer px-4 py-2 bg-blue-50 rounded-lg m-1 inline-block text-sm transition-all 
+                   hover:bg-blue-100 hover:shadow-md border border-blue-100 hover:border-blue-200 
+                   flex items-center space-x-2;
+        }
+        .typing-indicator span {
+            animation: blink 1.4s infinite;
+            animation-fill-mode: both;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+        @keyframes blink {
+            0% { opacity: .1; }
+            20% { opacity: 1; }
+            100% { opacity: .1; }
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .slide-in {
+            animation: slideIn 0.3s ease forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="chatbot-container" class="fixed bottom-6 right-6 z-50">
+        <!-- Chat Toggle Button -->
+        <button id="chat-toggle" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full p-4 shadow-lg flex items-center justify-center w-16 h-16 transition-all hover:shadow-xl hover:scale-105">
+            <i class="fas fa-graduation-cap text-xl"></i>
+        </button>
+        
+        <!-- Chat Window -->
+        <!-- Chat Window -->
+        <div id="chat-window" class="hidden fixed bottom-24 right-6 w-[420px] bg-white rounded-xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-xl flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white/20 p-2 rounded-lg">
+                        <i class="fas fa-graduation-cap text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg">Academic Assistant</h3>
+                        <p class="text-xs text-blue-100">Get Clearance</p>
+                    </div>
+                </div>
+                <button id="close-chat" class="text-white hover:text-blue-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Quick Actions Section -->
+            <div class="bg-white p-4 border-b">
+                <div class="text-sm text-gray-600 mb-3 flex items-center">
+                    <i class="fas fa-bolt text-yellow-500 mr-2"></i>Quick Actions:
+                </div>
+                
+                <!-- Academic Records -->
+                <div class="mb-3">
+                    <div class="text-sm font-semibold text-gray-700 mb-2">📚 Academic Records</div>
+                    <div class="flex flex-wrap">
+                        <span class="quick-action" onclick="handleQuickAction('view_records')">
+                            <i class="fas fa-eye text-blue-500"></i>
+                            <span>View Records</span>
+                        </span>
+                        <span class="quick-action" onclick="handleQuickAction('check_ranking')">
+                            <i class="fas fa-chart-line text-green-500"></i>
+                            <span>Check Rankings</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- CGPA Calculator -->
+                <div class="mb-3">
+                    <div class="text-sm font-semibold text-gray-700 mb-2">🎯 CGPA Tools</div>
+                    <div class="flex flex-wrap">
+                        <span class="quick-action" onclick="handleQuickAction('calc_cgpa')">
+                            <i class="fas fa-calculator text-purple-500"></i>
+                            <span>Calculate CGPA</span>
+                        </span>
+                        <span class="quick-action" onclick="handleQuickAction('grade_scale')">
+                            <i class="fas fa-list-ol text-orange-500"></i>
+                            <span>Grading Scale</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Reports & Analysis -->
+                <div class="mb-2">
+                    <div class="text-sm font-semibold text-gray-700 mb-2">📊 Reports & Analysis</div>
+                    <div class="flex flex-wrap">
+                        <span class="quick-action" onclick="handleQuickAction('generate_report')">
+                            <i class="fas fa-file-alt text-red-500"></i>
+                            <span>Generate Report</span>
+                        </span>
+                        <span class="quick-action" onclick="handleQuickAction('performance_analysis')">
+                            <i class="fas fa-chart-bar text-indigo-500"></i>
+                            <span>Performance Analysis</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="p-4 flex-grow overflow-y-auto custom-scrollbar space-y-4 bg-gray-50">
+                <!-- Welcome Message will be added here -->
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t p-4 bg-white rounded-b-xl">
+                <form id="chat-form" class="flex space-x-2">
+                    <input type="text" id="chat-input" 
+                           class="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50" 
+                           placeholder="Type your question here...">
+                    <button type="submit" 
+                            class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-full transition-all hover:shadow-md flex items-center justify-center">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Knowledge Base
+        const knowledgeBase = {
+            view_records: {
+                title: "View Student Records",
+                response: `I can help you access student records. What would you like to see?
+
+• Complete student profile
+• Academic history
+• Attendance records
+• Course registrations
+• Examination results
+
+Please specify what information you need.`
+            },
+            check_ranking: {
+                title: "Check Rankings",
+                response: `Available ranking metrics:
+
+• Overall class ranking
+• Subject-wise performance
+• Semester-wise ranking
+• Department ranking
+• Year-wise comparison
+
+Which ranking would you like to view?`
+            },
+            calc_cgpa: {
+                title: "Calculate CGPA",
+                response: `Let me help you calculate your CGPA.
+
+Here's how it works:
+1. Enter your grades for each subject
+2. Specify credit hours
+3. Get detailed CGPA calculation
+
+Would you like to:
+• Calculate new CGPA
+• Update existing CGPA
+• View sample calculation`
+            },
+            grade_scale: {
+                title: "Grading Scale",
+                response: `Standard Academic Grading Scale:
+
+A+ (90-100) = 4.0 GPA
+A  (85-89)  = 3.7 GPA
+A- (80-84)  = 3.5 GPA
+B+ (75-79)  = 3.3 GPA
+B  (70-74)  = 3.0 GPA
+B- (65-69)  = 2.7 GPA
+C+ (60-64)  = 2.3 GPA
+C  (55-59)  = 2.0 GPA
+F  (<55)    = 0.0 GPA
+
+Need help converting your grades?`
+            },
+            generate_report: {
+                title: "Generate Reports",
+                response: `Available Report Types:
+
+1. Academic Transcript
+2. Progress Report
+3. Performance Analysis
+4. Course Completion Status
+5. Grade Distribution Chart
+
+Which report would you like to generate?`
+            },
+            performance_analysis: {
+                title: "Performance Analysis",
+                response: `Comprehensive Analysis Includes:
+
+• Term-wise Performance Trends
+• Subject-wise Strength Analysis
+• Comparative Class Standing
+• Improvement Areas
+• Grades Highlights
+• Progress Predictions
+
+What aspect would you like to analyze?`
+            }
+        };
+
+        // DOM Elements
+        const elements = {
+            chatToggle: document.getElementById('chat-toggle'),
+            chatWindow: document.getElementById('chat-window'),
+            closeChat: document.getElementById('close-chat'),
+            chatForm: document.getElementById('chat-form'),
+            chatInput: document.getElementById('chat-input'),
+            chatMessages: document.getElementById('chat-messages')
+        };
+
+        // Add welcome message on load
+        
+
+        // Event Listeners
+        elements.chatToggle.onclick = () => {
+            elements.chatWindow.classList.toggle('hidden');
+        };
+
+        elements.closeChat.onclick = () => {
+            elements.chatWindow.classList.add('hidden');
+        };
+
+        elements.chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            const message = elements.chatInput.value.trim();
+            if (message) {
+                addMessage(message, 'user');
+                handleUserInput(message);
+                elements.chatInput.value = '';
+            }
+        };
+
+        // Handle Quick Actions
+        function handleQuickAction(actionKey) {
+            const action = knowledgeBase[actionKey];
+            if (action) {
+                addMessage(action.title, 'user');
+                showTypingEffect(() => {
+                    addMessage(action.response, 'bot');
+                });
+            }
+        }
+
+        // Add Message to Chat
+        function addMessage(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex items-start ${sender === 'user' ? 'justify-end' : ''} slide-in`;
+            
+            const bubbleClass = sender === 'user' 
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md' 
+                : 'bg-white text-gray-800 shadow-sm';
+            
+            messageDiv.innerHTML = `
+                <div class="${bubbleClass} rounded-2xl p-4 max-w-[80%] chat-bubble ${sender}-bubble">
+                    <p class="text-sm whitespace-pre-line">${message}</p>
+                </div>
+            `;
+            
+            elements.chatMessages.appendChild(messageDiv);
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        }
+
+        // Typing Effect
+        function showTypingEffect(callback) {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'flex items-start slide-in';
+            typingDiv.innerHTML = `
+                <div class="bg-white rounded-2xl p-4 chat-bubble bot-bubble shadow-sm">
+                    <div class="typing-indicator flex space-x-1">
+                        <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                        <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                        <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                    </div>
+                </div>
+            `;
+            
+            elements.chatMessages.appendChild(typingDiv);
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+            
+            setTimeout(() => {
+                typingDiv.remove();
+                callback();
+            }, 1500);
+        }
+
+        // Handle User Input
+        function handleUserInput(message) {
+            const lowercaseMsg = message.toLowerCase();
+            let response = '';
+
+            // Match user input with knowledge base
+            for (const [key, content] of Object.entries(knowledgeBase)) {
+                if (lowercaseMsg.includes(content.title.toLowerCase())) {
+                    response = content.response;
+                    break;
+                }
+            }
+
+            // Default response if no match found
+            if (!response) {
+                response = `I understand you're asking about "${message}".
+
+I can help you with:
+• Academic records and rankings
+• CGPA calculation and grading
+• Performance analysis
+• Report generation
+
+Please select a topic or rephrase your question.`;
+            }
+
+            showTypingEffect(() => {
+                addMessage(response, 'bot');
+            });
+        }
+        
+
+    // Simple Knowledge Base for CGPA-Related Questions
+    const cgpaResponses = {
+        "how to calculate cgpa": "To calculate CGPA, add all grade points and divide by the total number of subjects.",
+        
+        "cgpa formula": "CGPA = Total Grade Points / Total Subjects",
+        
+        "convert marks to cgpa": "Divide total marks by number of subjects, then use a conversion chart.",
+        
+        "cgpa to percentage": "Percentage = CGPA × 9.5",
+        
+        "percentage to cgpa": "CGPA = Percentage ÷ 9.5",
+        
+        "cgpa ranking": "Higher CGPA means a better rank. Students are ranked based on their CGPA.",
+        
+        "improve cgpa": "Score better in exams, focus on high-credit subjects, and avoid backlogs.",
+        
+        "cgpa vs gpa": "CGPA is the overall grade of all semesters, while GPA is for a single semester.",
+        
+        "minimum cgpa for job": "Most jobs require at least **6.0 CGPA**.",
+        
+        "cgpa required for higher studies": "For Master's programs, a **6.5+ CGPA** is recommended.",
+        
+        "cgpa grading system": "CGPA follows a 10-point scale, where 10 is the highest and 5 is the minimum pass grade.",
+        
+    };
+
+    // General Greetings
+    const generalResponses = {
+        "hi": "Hello! How can I assist you today?",
+        "hello": "Hi there! Need help with CGPA calculations?",
+        "hey": "Hey! How can I help with CGPA-related queries?"
+    };
+
+    // Event Listeners
+    elements.chatForm.onsubmit = (e) => {
+        e.preventDefault();
+        const message = elements.chatInput.value.trim().toLowerCase();
+        if (message) {
+            addMessage(message, 'user');
+            handleUserInput(message);
+            elements.chatInput.value = '';
+        }
+    };
+
+    // Handle User Input
+    function handleUserInput(message) {
+        let response = "";
+
+        // Check for general greetings
+        if (generalResponses[message]) {
+            response = generalResponses[message];
+        }
+        // Check if user asks anything related to CGPA
+        else {
+            for (const key in cgpaResponses) {
+                if (message.includes(key)) {
+                    response = cgpaResponses[key];
+                    break;
+                }
+            }
+        }
+
+        // Default response if no match found
+        if (!response) {
+            response = "I can help with CGPA calculations, percentage conversion, and ranking. Please ask your question clearly.";
+        }
+
+        showTypingEffect(() => {
+            addMessage(response, 'bot');
+        });
+    }
+
+    </script>
+</body>
+</html>
